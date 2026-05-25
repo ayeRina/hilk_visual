@@ -1,195 +1,163 @@
 import { useState } from 'react';
-import {
-  ImageBackground,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
-import { Link } from 'expo-router';
+import { View, Text, TextInput, Pressable, StyleSheet, Image, KeyboardAvoidingView } from 'react-native';
+import { Link, useRouter } from 'expo-router';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-
-const background = require('@/assets/images/react-logo.png');
+const logo = require('@/assets/images/logo.png');
+const AnimatedImage = Animated.createAnimatedComponent(Image);
 
 export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
+  const router = useRouter();
 
   return (
-    <ThemedView style={styles.container}>
-      <ImageBackground source={background} style={styles.background} imageStyle={styles.backgroundImage}>
-        <View style={styles.overlay} />
-        <KeyboardAvoidingView
-          style={styles.inner}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <ThemedView style={styles.header}>
-            <View style={styles.logoFrame}>
-              <ThemedText style={styles.logoText}>HV</ThemedText>
-            </View>
-            <ThemedText type="title" style={styles.title}>
-              LOGIN
-            </ThemedText>
-            <ThemedText type="default" style={styles.subtitle}>
-              Please sign in to continue
-            </ThemedText>
-          </ThemedView>
+    <View style={styles.container}>
+      <KeyboardAvoidingView style={styles.inner} behavior="padding">
+        <Animated.View style={styles.header} entering={FadeInDown.duration(800)}>
+          <AnimatedImage
+            source={logo}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <Text style={styles.title}>LOGIN</Text>
+          <Text style={styles.subtitle}>Please sign in to continue</Text>
+        </Animated.View>
 
-          <ThemedView style={styles.formCard}>
-            <ThemedText style={styles.fieldLabel}>EMAIL</ThemedText>
+        <Animated.View style={styles.form} entering={FadeInUp.delay(400).duration(800)}>
+          <Text style={styles.label}>EMAIL</Text>
+          <TextInput placeholder="Enter your email" style={styles.input} />
+
+          <Text style={styles.label}>PASSWORD</Text>
+          <View style={styles.passwordContainer}>
             <TextInput
-              placeholder="Enter your email"
-              placeholderTextColor="rgba(0,0,0,0.4)"
-              keyboardType="email-address"
-              autoCapitalize="none"
+              placeholder="Enter your password"
+              secureTextEntry={!showPassword}
               style={styles.input}
             />
-
-            <ThemedText style={styles.fieldLabel}>PASSWORD</ThemedText>
-            <View style={styles.passwordRow}>
-              <TextInput
-                placeholder="Enter your password"
-                placeholderTextColor="rgba(0,0,0,0.4)"
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                style={styles.input}
-              />
-              <Pressable onPress={() => setShowPassword((prev) => !prev)} style={styles.showButton}>
-                <ThemedText style={styles.showButtonText}>{showPassword ? 'HIDE' : 'SHOW'}</ThemedText>
-              </Pressable>
-            </View>
-
-            <Pressable style={styles.actionButton} onPress={() => {}}>
-              <ThemedText type="subtitle" style={styles.actionButtonText}>
-                SIGN IN
-              </ThemedText>
+            <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.showButton}>
+              <Text style={styles.showButtonText}>{showPassword ? 'HIDE' : 'SHOW'}</Text>
             </Pressable>
+          </View>
 
-            <ThemedView style={styles.rememberRow}>
-              <View style={styles.checkbox} />
-              <ThemedText>Remember me</ThemedText>
-            </ThemedView>
-          </ThemedView>
+          <Pressable
+            onPress={() => router.replace('/(tabs)/home')}
+            style={styles.button}
+          >
+            <Text style={styles.buttonText}>SIGN IN</Text>
+          </Pressable>
+        </Animated.View>
 
-          <Link href="/register" style={styles.bottomLink}>
-            <ThemedText type="link">Don’t have an account? Sign up</ThemedText>
+        <Animated.View entering={FadeInUp.delay(600).duration(800)}>
+          <Link href="/register" style={styles.link}>
+            <Text style={styles.linkText}>Don’t have an account? Sign up</Text>
           </Link>
-        </KeyboardAvoidingView>
-      </ImageBackground>
-    </ThemedView>
+        </Animated.View>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  background: {
-    flex: 1,
-  },
-  backgroundImage: {
-    resizeMode: 'cover',
-    opacity: 0.35,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.28)',
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   inner: {
     flex: 1,
     justifyContent: 'space-between',
-    padding: 28,
+    paddingHorizontal: 32,
+    paddingVertical: 48,
+    width: '100%',
+    maxWidth: 480,
   },
   header: {
-    gap: 12,
+    gap: 20,
     alignItems: 'center',
+    marginTop: 40,
   },
-  logoFrame: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    borderWidth: 2,
-    borderColor: '#333',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.9)',
-  },
-  logoText: {
-    fontSize: 26,
-    fontWeight: '800',
-    letterSpacing: 2,
+  logo: {
+    width: 180,
+    height: 180,
   },
   title: {
-    letterSpacing: 1.5,
+    fontSize: 36,
+    fontWeight: '800',
+    color: '#1a1a2e',
+    letterSpacing: 2,
   },
   subtitle: {
-    textAlign: 'center',
-    lineHeight: 24,
-    maxWidth: 280,
+    fontSize: 16,
+    color: '#666666',
   },
-  formCard: {
+  form: {
+    gap: 18,
+    backgroundColor: '#f8f8f8',
+    padding: 28,
     borderRadius: 24,
-    padding: 22,
-    backgroundColor: 'rgba(255,255,255,0.88)',
     shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    elevation: 4,
-    gap: 14,
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
   },
-  fieldLabel: {
-    fontSize: 12,
-    letterSpacing: 1.2,
-    color: '#333',
+  label: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1a1a2e',
+    letterSpacing: 1.5,
   },
   input: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    padding: 16,
+    backgroundColor: '#fff',
     borderRadius: 16,
-    backgroundColor: '#f7f7f7',
-    color: '#111',
+    fontSize: 16,
+    color: '#1a1a2e',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
-  passwordRow: {
-    gap: 12,
+  passwordContainer: {
+    position: 'relative',
   },
   showButton: {
     position: 'absolute',
     right: 16,
-    top: 18,
+    top: 20,
   },
   showButtonText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#8a8a8a',
+    color: '#d4c35a',
   },
-  actionButton: {
-    marginTop: 8,
-    paddingVertical: 16,
-    alignItems: 'center',
-    borderRadius: 16,
+  button: {
+    marginTop: 12,
+    paddingVertical: 20,
     backgroundColor: '#d4c35a',
-  },
-  actionButtonText: {
-    color: '#1a1a1a',
-  },
-  rememberRow: {
-    flexDirection: 'row',
+    borderRadius: 20,
     alignItems: 'center',
-    gap: 10,
-    marginTop: 8,
+    shadowColor: '#d4c35a',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 10,
   },
-  checkbox: {
-    width: 16,
-    height: 16,
-    borderWidth: 1,
-    borderColor: '#444',
-    borderRadius: 4,
+  buttonText: {
+    color: '#1a1a2e',
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 2,
   },
-  bottomLink: {
+  link: {
     alignSelf: 'center',
-    marginBottom: 18,
     paddingVertical: 12,
+  },
+  linkText: {
+    color: '#d4c35a',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
