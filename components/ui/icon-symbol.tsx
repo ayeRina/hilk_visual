@@ -18,9 +18,16 @@ const MAPPING = {
   'paperplane.fill': 'send',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
+  'chevron.left': 'chevron-left',
   calendar: 'calendar-today',
   folder: 'folder',
   person: 'person',
+  'bell.fill': 'notifications',
+  'camera.fill': 'camera-alt',
+  'clock.fill': 'schedule',
+  'photo.on.rectangle.angled': 'collections',
+  'camera.aperture': 'camera',
+  'arrow.right': 'arrow-forward',
 } as IconMapping;
 
 /**
