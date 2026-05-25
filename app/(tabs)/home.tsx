@@ -1,4 +1,5 @@
 import { Pressable, ScrollView, StyleSheet, View, Image, Dimensions } from 'react-native';
+import { useRouter } from 'expo-router';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ThemedText } from '@/components/themed-text';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
@@ -16,29 +17,40 @@ const cards = [
     title: 'Book Photoshoots', 
     note: 'Choose your package', 
     color: '#f1d8d0',
-    icon: 'camera.fill'
+    icon: 'camera.fill',
+    route: null
   },
   { 
-    title: 'Choose a Date', 
-    note: 'Select a shoot day', 
+    title: 'View Photoshoots', 
+    note: 'See your bookings', 
     color: '#dee8f6',
-    icon: 'calendar'
+    icon: 'photo.on.rectangle.angled',
+    route: null
   },
   { 
-    title: 'Pick a Time', 
-    note: 'Morning or evening', 
+    title: 'My Files', 
+    note: 'Go to files tab', 
     color: '#e6f4de',
-    icon: 'clock.fill'
+    icon: 'folder',
+    route: '/(tabs)/file'
   },
   { 
-    title: 'View Gallery', 
-    note: 'See your saved shots', 
+    title: 'View Calendar', 
+    note: 'Go to calendar tab', 
     color: '#f4e5c8',
-    icon: 'photo.on.rectangle.angled'
+    icon: 'calendar',
+    route: '/(tabs)/calendar'
   },
 ];
 
 export default function HomeScreen() {
+  const router = useRouter();
+
+  const handleCardPress = (card: typeof cards[0]) => {
+    if (card.route) {
+      router.push(card.route);
+    }
+  };
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -82,15 +94,18 @@ export default function HomeScreen() {
             {cards.map((card, index) => (
               <Animated.View 
                 key={card.title} 
-                style={[styles.card, { backgroundColor: card.color }]}
                 entering={FadeInUp.delay(500 + index * 100).duration(600)}>
-                <View style={styles.cardIcon}>
-                  <IconSymbol size={32} name={card.icon} color="#1a1a2e" />
-                </View>
-                <ThemedText type="subtitle" style={styles.cardTitle}>
-                  {card.title}
-                </ThemedText>
-                <ThemedText style={styles.cardNote}>{card.note}</ThemedText>
+                <Pressable 
+                  style={[styles.card, { backgroundColor: card.color }]}
+                  onPress={() => handleCardPress(card)}>
+                  <View style={styles.cardIcon}>
+                    <IconSymbol size={32} name={card.icon} color="#1a1a2e" />
+                  </View>
+                  <ThemedText type="subtitle" style={styles.cardTitle}>
+                    {card.title}
+                  </ThemedText>
+                  <ThemedText style={styles.cardNote}>{card.note}</ThemedText>
+                </Pressable>
               </Animated.View>
             ))}
           </View>
