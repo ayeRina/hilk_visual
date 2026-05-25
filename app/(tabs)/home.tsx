@@ -18,7 +18,7 @@ const cards = [
     note: 'Choose your package', 
     color: '#f1d8d0',
     icon: 'camera.fill',
-    route: null
+    route: '/BOOKING/book'
   },
   { 
     title: 'View Photoshoots', 
@@ -77,7 +77,7 @@ export default function HomeScreen() {
           <ThemedText type="title" style={styles.featuredTitle}>Capture Your Moments</ThemedText>
           <ThemedText style={styles.featuredSubtitle}>Book a professional photoshoot today</ThemedText>
           <View style={styles.featuredRow}>
-            <Pressable style={styles.featuredButton}>
+            <Pressable style={styles.featuredButton} onPress={() => router.push('/BOOKING/book')}>
               <ThemedText type="subtitle" style={styles.featuredButtonText}>
                 EXPLORE
               </ThemedText>
@@ -113,7 +113,7 @@ export default function HomeScreen() {
 
         <Animated.View style={styles.bookingSection} entering={FadeInUp.delay(900).duration(800)}>
           <ThemedText type="subtitle" style={styles.bookingTitle}>Ready to Shoot?</ThemedText>
-          <Pressable style={styles.button}>
+          <Pressable style={styles.button} onPress={() => router.push('/BOOKING/book')}>
             <ThemedText type="subtitle" style={styles.buttonText}>
               BOOK NOW
             </ThemedText>

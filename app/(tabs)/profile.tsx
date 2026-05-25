@@ -5,18 +5,17 @@ import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 
 const profileOptions = [
-  { title: 'Edit Profile', icon: 'person', color: '#f1d8d0' },
-  { title: 'About Us', icon: 'info', color: '#dee8f6' },
-  { title: 'Help', icon: 'questionmark', color: '#e6f4de' },
-  { title: 'Logout', icon: 'arrow.right', color: '#f4e5c8' },
+  { title: 'Edit Profile', icon: 'person', color: '#f1d8d0', route: '/profile/edit-profile' },
+  { title: 'About Us', icon: 'info', color: '#dee8f6', route: '/profile/about-us' },
+  { title: 'Logout', icon: 'arrow.right', color: '#f4e5c8', route: '/profile/logout-confirm' },
 ];
 
 export default function ProfileScreen() {
   const router = useRouter();
 
   const handleOptionPress = (option: typeof profileOptions[0]) => {
-    if (option.title === 'Logout') {
-      router.replace('/(auth)');
+    if (option.route) {
+      router.push(option.route);
     }
   };
 
