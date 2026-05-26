@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, Image, KeyboardAvoidingView } from 'react-native';
+import { loginUser } from '@/api';
+import { saveSessionUser } from '@/src/session';
 import { Link, useRouter } from 'expo-router';
+import { useState } from 'react';
+import { Image, KeyboardAvoidingView, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 const logo = require('@/assets/images/logo.png');
@@ -8,7 +10,39 @@ const AnimatedImage = Animated.createAnimatedComponent(Image);
 
 export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
+
+  const handleSignIn = async () => {
+    if (!email.trim() || !password.trim()) {
+      alert('Please enter email and password.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await loginUser({
+        email: email.trim(),
+        password,
+      });
+
+      if (res?.success) {
+        if (res.data) {
+          await saveSessionUser(res.data as any);
+        }
+        alert('Login successful.');
+        router.replace('/(tabs)/home');
+      } else {
+        alert(res?.message || 'Invalid credentials.');
+      }
+    } catch (e) {
+      alert('Unable to login right now. Please check backend/API URL.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -25,7 +59,15 @@ export default function LoginScreen() {
 
         <Animated.View style={styles.form} entering={FadeInUp.delay(400).duration(800)}>
           <Text style={styles.label}>EMAIL</Text>
-          <TextInput placeholder="Enter your email" style={styles.input} />
+          <TextInput
+            placeholder="Enter your email"
+            style={styles.input}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
 
           <Text style={styles.label}>PASSWORD</Text>
           <View style={styles.passwordContainer}>
@@ -33,6 +75,10 @@ export default function LoginScreen() {
               placeholder="Enter your password"
               secureTextEntry={!showPassword}
               style={styles.input}
+              value={password}
+              onChangeText={setPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
             <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.showButton}>
               <Text style={styles.showButtonText}>{showPassword ? 'HIDE' : 'SHOW'}</Text>
@@ -40,10 +86,11 @@ export default function LoginScreen() {
           </View>
 
           <Pressable
-            onPress={() => router.replace('/(tabs)/home')}
+            onPress={handleSignIn}
             style={styles.button}
+            disabled={isSubmitting}
           >
-            <Text style={styles.buttonText}>SIGN IN</Text>
+            <Text style={styles.buttonText}>{isSubmitting ? 'SIGNING IN...' : 'SIGN IN'}</Text>
           </Pressable>
         </Animated.View>
 

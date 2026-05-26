@@ -1,16 +1,136 @@
-import { useState } from 'react';
-import { StyleSheet, View, Pressable, ScrollView, TextInput } from 'react-native';
-import { useRouter } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { resolveAssetUrl, updateUserProfile, uploadFile } from '@/src/api';
+import { getSessionUser, saveSessionUser, type SessionUser } from '@/src/session';
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 export default function EditProfileScreen() {
   const router = useRouter();
-  const [name, setName] = useState('Luxxkey Smith');
-  const [email, setEmail] = useState('luxxkey@example.com');
+  const [user, setUser] = useState<SessionUser | null>(null);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [changePassword, setChangePassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [pickedPhotoUri, setPickedPhotoUri] = useState<string | null>(null);
+  const [pickedPhotoPath, setPickedPhotoPath] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const sessionUser = await getSessionUser();
+      if (!mounted || !sessionUser) {
+        return;
+      }
+
+      setUser(sessionUser);
+      setName(sessionUser.full_name || '');
+      setEmail(sessionUser.email || '');
+      setPickedPhotoPath(sessionUser.profile_photo_path || null);
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const displayedPhoto = pickedPhotoUri ? { uri: pickedPhotoUri } : resolveAssetUrl(pickedPhotoPath);
+
+  const handlePickPhoto = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Please allow photo library access to change your profile photo.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.85,
+      allowsEditing: true,
+      aspect: [1, 1],
+    });
+
+    if (result.canceled || !result.assets?.length) {
+      return;
+    }
+
+    setPickedPhotoUri(result.assets[0].uri);
+  };
+
+  const handleSave = async () => {
+    if (!user) {
+      Alert.alert('Not signed in', 'Please sign in again and retry.');
+      return;
+    }
+
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+
+    if (!trimmedName || !trimmedEmail) {
+      Alert.alert('Missing info', 'Full name and email are required.');
+      return;
+    }
+
+    if (changePassword && changePassword !== confirmPassword) {
+      Alert.alert('Password mismatch', 'Passwords do not match.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      let profilePhotoPath = pickedPhotoPath;
+
+      if (pickedPhotoUri) {
+        const uploadRes = await uploadFile({
+          uri: pickedPhotoUri,
+          user_id: user.id,
+          fileName: `profile-${user.id}.jpg`,
+          type: 'image/jpeg',
+        });
+
+        if (!uploadRes?.success || !uploadRes.data?.file_path) {
+          Alert.alert('Upload failed', uploadRes?.message || 'Could not upload profile photo.');
+          return;
+        }
+
+        profilePhotoPath = uploadRes.data.file_path;
+      }
+
+      const updateRes = await updateUserProfile({
+        id: user.id,
+        full_name: trimmedName,
+        email: trimmedEmail,
+        phone: user.phone || undefined,
+        profile_photo_path: profilePhotoPath || undefined,
+        password: changePassword || undefined,
+      });
+
+      if (!updateRes?.success) {
+        Alert.alert('Update failed', updateRes?.message || 'Could not update profile.');
+        return;
+      }
+
+      const updatedUser = updateRes.data || {
+        ...user,
+        full_name: trimmedName,
+        email: trimmedEmail,
+        phone: user.phone || null,
+        profile_photo_path: profilePhotoPath || null,
+      };
+
+      await saveSessionUser(updatedUser as SessionUser);
+      Alert.alert('Success', 'Profile updated successfully.');
+      router.back();
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Unable to update profile right now.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -25,9 +145,13 @@ export default function EditProfileScreen() {
 
         <Animated.View style={styles.avatarSection} entering={FadeInDown.delay(200).duration(800)}>
           <View style={styles.avatar}>
-            <IconSymbol size={48} name="person" color="#ffffff" />
+            {displayedPhoto ? (
+              <Image source={displayedPhoto as any} style={styles.avatarImage} />
+            ) : (
+              <IconSymbol size={48} name="person" color="#ffffff" />
+            )}
           </View>
-          <Pressable style={styles.changePhotoButton}>
+          <Pressable style={styles.changePhotoButton} onPress={handlePickPhoto}>
             <ThemedText style={styles.changePhotoText}>Change Photo</ThemedText>
           </Pressable>
         </Animated.View>
@@ -39,6 +163,7 @@ export default function EditProfileScreen() {
               style={styles.input}
               value={name}
               onChangeText={setName}
+              autoCapitalize="words"
             />
           </View>
 
@@ -49,6 +174,8 @@ export default function EditProfileScreen() {
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
             />
           </View>
 
@@ -61,6 +188,8 @@ export default function EditProfileScreen() {
               value={changePassword}
               onChangeText={setChangePassword}
               secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
             />
           </View>
 
@@ -73,21 +202,16 @@ export default function EditProfileScreen() {
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
             />
           </View>
         </Animated.View>
 
         <Animated.View style={styles.submitSection} entering={FadeInUp.delay(600).duration(800)}>
-          <Pressable style={styles.submitButton} onPress={() => {
-            if (changePassword && changePassword !== confirmPassword) {
-              alert('Passwords do not match!');
-              return;
-            }
-            alert('Profile updated successfully!');
-            router.back();
-          }}>
+          <Pressable style={[styles.submitButton, isSaving && styles.submitButtonDisabled]} onPress={handleSave} disabled={isSaving}>
             <ThemedText type="subtitle" style={styles.submitButtonText}>
-              SAVE CHANGES
+              {isSaving ? 'SAVING...' : 'SAVE CHANGES'}
             </ThemedText>
           </Pressable>
         </Animated.View>
@@ -135,6 +259,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#d4c35a',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
     shadowColor: '#d4c35a',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
@@ -151,6 +276,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#d4c35a',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   form: {
     gap: 20,
@@ -185,6 +314,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 20,
     elevation: 10,
+  },
+  submitButtonDisabled: {
+    opacity: 0.7,
   },
   submitButtonText: {
     color: '#1a1a2e',

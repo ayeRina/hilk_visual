@@ -1,7 +1,7 @@
-import { Pressable, ScrollView, StyleSheet, View, Image, Dimensions } from 'react-native';
-import { useRouter } from 'expo-router';
-import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ThemedText } from '@/components/themed-text';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useRouter } from 'expo-router';
+import { Dimensions, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -22,10 +22,10 @@ const cards = [
   },
   { 
     title: 'View Photoshoots', 
-    note: 'See your bookings', 
+    note: 'See our portfolio', 
     color: '#dee8f6',
     icon: 'photo.on.rectangle.angled',
-    route: null
+    route: '/photoshoots'
   },
   { 
     title: 'My Files', 

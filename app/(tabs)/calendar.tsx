@@ -1,17 +1,47 @@
-import { useState } from 'react';
-import { StyleSheet, View, Pressable, ScrollView, Dimensions } from 'react-native';
+import { bookings as apiBookings } from '@/api';
 import { ThemedText } from '@/components/themed-text';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useRouter } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
+import { Dimensions, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 const { width: screenWidth } = Dimensions.get('window');
 const dayWidth = (screenWidth - 48 - 12) / 7;
 
+const TIME_SLOTS = [
+  '8:00 AM',
+  '9:00 AM',
+  '10:00 AM',
+  '11:00 AM',
+  '12:00 PM',
+  '1:00 PM',
+  '2:00 PM',
+  '3:00 PM',
+  '4:00 PM',
+];
+
+function normalizeTimeLabel(value: string): string {
+  return value.replace(/\s+/g, ' ').trim().toUpperCase().replace(/^0(\d:)/, '$1');
+}
+
+function toLocalDateKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function isOccupiedStatus(value: unknown): boolean {
+  const status = String(value || '').trim().toLowerCase();
+  return status !== '' && status !== 'cancelled' && status !== 'canceled' && status !== 'rejected';
+}
+
 export default function CalendarScreen() {
+  const router = useRouter();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-
-  const bookedDates = [5, 8, 12, 15, 19, 22, 26];
+  const [confirmedSlotsByDate, setConfirmedSlotsByDate] = useState<Record<string, string[]>>({});
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -22,7 +52,55 @@ export default function CalendarScreen() {
                       'July', 'August', 'September', 'October', 'November', 'December'];
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  const isBooked = (day: number) => bookedDates.includes(day);
+  const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}-`;
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await apiBookings();
+        if (!mounted) return;
+        if (res?.success && Array.isArray(res.data)) {
+          const map: Record<string, string[]> = {};
+          (res.data as any[]).forEach((b) => {
+            if (!isOccupiedStatus(b.status)) return;
+            const dateKey = String(b.booking_date || '').trim();
+            const time = String(b.booking_time || '').trim();
+            if (!dateKey || !time) return;
+            if (!map[dateKey]) map[dateKey] = [];
+            map[dateKey].push(normalizeTimeLabel(time));
+          });
+          setConfirmedSlotsByDate(map);
+        }
+      } catch {
+        // ignore fetch errors on calendar screen
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const fullyBookedDays = useMemo(() => {
+    return Object.entries(confirmedSlotsByDate)
+      .filter(([dateKey, times]) => dateKey.startsWith(monthPrefix) && new Set(times).size >= TIME_SLOTS.length)
+      .map(([dateKey]) => Number(dateKey.slice(-2)));
+  }, [confirmedSlotsByDate, monthPrefix]);
+
+  const partlyBookedDays = useMemo(() => {
+    return Object.entries(confirmedSlotsByDate)
+      .filter(([dateKey, times]) => dateKey.startsWith(monthPrefix) && new Set(times).size > 0)
+      .map(([dateKey]) => Number(dateKey.slice(-2)));
+  }, [confirmedSlotsByDate, monthPrefix]);
+
+  const selectedDateKey = selectedDate ? toLocalDateKey(selectedDate) : null;
+  const selectedDateBookedTimes = selectedDateKey
+    ? Array.from(new Set((confirmedSlotsByDate[selectedDateKey] || []).map(normalizeTimeLabel)))
+    : [];
+
+  const isBooked = (day: number) => fullyBookedDays.includes(day);
+  const isPartlyBooked = (day: number) => partlyBookedDays.includes(day);
   const isToday = (day: number) => {
     const today = new Date();
     return today.getDate() === day && 
@@ -58,6 +136,7 @@ export default function CalendarScreen() {
 
     for (let day = 1; day <= daysInMonth; day++) {
       const booked = isBooked(day);
+      const partlyBooked = isPartlyBooked(day);
       const today = isToday(day);
       const selected = isSelected(day);
       const past = isPast(day);
@@ -76,6 +155,8 @@ export default function CalendarScreen() {
         textStyle.push(styles.todayText);
       } else if (past) {
         textStyle.push(styles.pastText);
+      } else if (partlyBooked) {
+        dayStyle.push(styles.partlyBookedDay);
       }
 
       days.push(
@@ -85,7 +166,7 @@ export default function CalendarScreen() {
           onPress={() => handleDatePress(day)}
           disabled={booked || past}>
           <ThemedText style={textStyle}>{day}</ThemedText>
-          {booked && <View style={styles.bookedDot} />}
+          {partlyBooked && <View style={styles.bookedDot} />}
         </Pressable>
       );
     }
@@ -159,7 +240,13 @@ export default function CalendarScreen() {
                 day: 'numeric' 
               })}
             </ThemedText>
-            <Pressable style={styles.confirmButton}>
+            <ThemedText style={styles.bookedTimesTitle}>Booked time slots</ThemedText>
+            <ThemedText style={styles.bookedTimesText}>
+              {selectedDateBookedTimes.length > 0
+                ? selectedDateBookedTimes.join(', ')
+                : 'No booked times yet for this date.'}
+            </ThemedText>
+            <Pressable style={styles.confirmButton} onPress={() => router.push('/BOOKING/book')}>
               <ThemedText type="subtitle" style={styles.confirmButtonText}>
                 CONFIRM DATE
               </ThemedText>
@@ -278,6 +365,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(26, 26, 46, 0.08)',
     opacity: 0.5,
   },
+  partlyBookedDay: {
+    backgroundColor: 'rgba(212, 195, 90, 0.12)',
+  },
   bookedText: {
     color: '#999999',
     textDecorationLine: 'line-through',
@@ -352,6 +442,17 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#ffffff',
     lineHeight: 32,
+  },
+  bookedTimesTitle: {
+    marginTop: 4,
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  bookedTimesText: {
+    color: '#ffffff',
+    fontSize: 15,
+    lineHeight: 22,
   },
   confirmButton: {
     marginTop: 8,

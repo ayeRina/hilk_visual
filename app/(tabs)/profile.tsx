@@ -1,8 +1,11 @@
-import { StyleSheet, View, Pressable, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { resolveAssetUrl } from '@/src/api';
+import { getSessionUser, type SessionUser } from '@/src/session';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 const profileOptions = [
   { title: 'Edit Profile', icon: 'person', color: '#f1d8d0', route: '/profile/edit-profile' },
@@ -12,12 +15,29 @@ const profileOptions = [
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const [user, setUser] = useState<SessionUser | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const sessionUser = await getSessionUser();
+      if (mounted) {
+        setUser(sessionUser);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const handleOptionPress = (option: typeof profileOptions[0]) => {
     if (option.route) {
       router.push(option.route);
     }
   };
+
+  const profilePhoto = resolveAssetUrl(user?.profile_photo_path || null);
 
   return (
     <View style={styles.container}>
@@ -31,13 +51,17 @@ export default function ProfileScreen() {
 
         <Animated.View style={styles.profileCard} entering={FadeInDown.delay(200).duration(800)}>
           <View style={styles.avatar}>
-            <IconSymbol size={48} name="person" color="#ffffff" />
+            {profilePhoto ? (
+              <Image source={{ uri: profilePhoto }} style={styles.avatarImage} />
+            ) : (
+              <IconSymbol size={48} name="person" color="#ffffff" />
+            )}
           </View>
           <ThemedText type="subtitle" style={styles.userName}>
-            Luxxkey Smith
+            {user?.full_name || 'Guest User'}
           </ThemedText>
           <ThemedText style={styles.userEmail}>
-            luxxkey@example.com
+            {user?.email || 'No email available'}
           </ThemedText>
         </Animated.View>
 
@@ -110,6 +134,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#d4c35a',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   userName: {
     color: '#ffffff',

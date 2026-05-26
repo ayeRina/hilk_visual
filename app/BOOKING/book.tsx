@@ -1,16 +1,17 @@
-import { useState } from 'react';
-import {
-  StyleSheet,
-  View,
-  Pressable,
-  ScrollView,
-  TextInput,
-  Dimensions,
-} from 'react-native';
-import { useRouter } from 'expo-router';
+import { bookings as apiBookings, createBooking } from '@/api';
 import { ThemedText } from '@/components/themed-text';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import {
+    Dimensions,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    View,
+} from 'react-native';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 const { width: screenWidth } = Dimensions.get('window');
 const calendarPadding = 20;
@@ -23,6 +24,34 @@ const services = [
   { id: 'maternity', name: 'Maternity Photoshoot', color: '#f4e5c8' },
 ];
 
+const TIME_SLOTS = [
+  '8:00 AM',
+  '9:00 AM',
+  '10:00 AM',
+  '11:00 AM',
+  '12:00 PM',
+  '1:00 PM',
+  '2:00 PM',
+  '3:00 PM',
+  '4:00 PM',
+];
+
+function normalizeTimeLabel(value: string): string {
+  return value.replace(/\s+/g, ' ').trim().toUpperCase().replace(/^0(\d:)/, '$1');
+}
+
+function toLocalDateKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function isOccupiedStatus(value: unknown): boolean {
+  const status = String(value || '').trim().toLowerCase();
+  return status !== '' && status !== 'cancelled' && status !== 'canceled' && status !== 'rejected';
+}
+
 export default function BookScreen() {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -31,7 +60,7 @@ export default function BookScreen() {
   const [selectedTime, setSelectedTime] = useState('');
   const [selectedService, setSelectedService] = useState<string | null>(null);
 
-  const bookedDates = [5, 8, 12, 15, 19, 22, 26];
+  const [confirmedSlotsByDate, setConfirmedSlotsByDate] = useState<Record<string, string[]>>({});
   const currentDate = new Date();
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -41,6 +70,16 @@ export default function BookScreen() {
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
                       'July', 'August', 'September', 'October', 'November', 'December'];
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const currentMonthPrefix = `${year}-${String(month + 1).padStart(2, '0')}-`;
+
+  const fullyBookedDays = Object.entries(confirmedSlotsByDate)
+    .filter(([dateKey, times]) => dateKey.startsWith(currentMonthPrefix) && new Set(times).size >= TIME_SLOTS.length)
+    .map(([dateKey]) => Number(dateKey.slice(-2)));
+
+  const selectedDateKey = selectedDate ? toLocalDateKey(selectedDate) : null;
+  const bookedTimesForSelectedDate = selectedDateKey
+    ? new Set((confirmedSlotsByDate[selectedDateKey] || []).map(normalizeTimeLabel))
+    : new Set<string>();
 
   const renderDays = () => {
     const days = [];
@@ -50,7 +89,7 @@ export default function BookScreen() {
     }
 
     for (let day = 1; day <= daysInMonth; day++) {
-      const booked = bookedDates.includes(day);
+      const booked = fullyBookedDays.includes(day);
       const isToday = day === currentDate.getDate();
       const isSelected = selectedDate?.getDate() === day;
       const isPast = day < currentDate.getDate();
@@ -78,6 +117,7 @@ export default function BookScreen() {
           onPress={() => {
             if (!booked && !isPast) {
               setSelectedDate(new Date(year, month, day));
+              setSelectedTime('');
             }
           }}
           disabled={booked || isPast}>
@@ -96,10 +136,57 @@ export default function BookScreen() {
     }
   };
 
-  const handleConfirmBooking = () => {
-    alert('Booking confirmed! Thank you for booking!');
-    router.back();
+  const handleConfirmBooking = async () => {
+    try {
+      const payload = {
+        user_id: null,
+        client_name: fullName,
+        booking_date: selectedDate ? toLocalDateKey(selectedDate) : null,
+        booking_time: selectedTime,
+        location: null,
+        notes: null,
+        status: 'pending',
+        services: selectedService ? [getServiceName(selectedService)] : [],
+      };
+      const res = await createBooking(payload);
+      if (res && (res as any).success) {
+        alert('Booking confirmed! Thank you for booking!');
+        router.back();
+      } else {
+        alert('Failed to create booking: ' + ((res as any).message || 'Unknown'));
+      }
+    } catch (err) {
+      console.error(err);
+      alert('An error occurred while creating booking. Please verify API BASE URL and backend status.');
+    }
   };
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await apiBookings();
+        if (!mounted) return;
+        if (res && res.success && Array.isArray(res.data)) {
+          const map: Record<string, string[]> = {};
+          (res.data as any[]).forEach((b) => {
+            if (!isOccupiedStatus(b.status)) return;
+            const dateKey = String(b.booking_date || '').trim();
+            const time = String(b.booking_time || '').trim();
+            if (!dateKey || !time) return;
+            if (!map[dateKey]) {
+              map[dateKey] = [];
+            }
+            map[dateKey].push(normalizeTimeLabel(time));
+          });
+          setConfirmedSlotsByDate(map);
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const getServiceName = (id: string | null) => {
     const service = services.find(s => s.id === id);
@@ -204,13 +291,50 @@ export default function BookScreen() {
             <IconSymbol size={20} name="clock.fill" color="#d4c35a" />
             <ThemedText style={styles.label}>Select Time</ThemedText>
           </View>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter time (e.g., 09:00 AM)"
-            placeholderTextColor="rgba(102, 102, 102, 0.6)"
-            value={selectedTime}
-            onChangeText={setSelectedTime}
-          />
+
+          {selectedDate ? (
+            <>
+              <ThemedText style={styles.timeHelpText}>
+                {bookedTimesForSelectedDate.size > 0
+                  ? `Booked for this date: ${Array.from(bookedTimesForSelectedDate).join(', ')}`
+                  : 'No booked times yet for this date.'}
+              </ThemedText>
+              <View style={styles.timeSlotsGrid}>
+                {TIME_SLOTS.map((slot) => {
+                  const normalizedSlot = normalizeTimeLabel(slot);
+                  const isSlotBooked = bookedTimesForSelectedDate.has(normalizedSlot);
+                  const isSelectedSlot = selectedTime === slot;
+                  return (
+                    <Pressable
+                      key={slot}
+                      onPress={() => !isSlotBooked && setSelectedTime(slot)}
+                      disabled={isSlotBooked}
+                      style={[
+                        styles.timeSlotCard,
+                        isSlotBooked && styles.timeSlotBooked,
+                        isSelectedSlot && styles.timeSlotSelected,
+                      ]}>
+                      <ThemedText
+                        style={[
+                          styles.timeSlotText,
+                          isSlotBooked && styles.timeSlotBookedText,
+                          isSelectedSlot && styles.selectedServiceText,
+                        ]}>
+                        {slot}
+                      </ThemedText>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              {bookedTimesForSelectedDate.size >= TIME_SLOTS.length && (
+                <ThemedText style={styles.fullyBookedText}>
+                  This date is fully booked.
+                </ThemedText>
+              )}
+            </>
+          ) : (
+            <ThemedText style={styles.timeHelpText}>Select a date first to see available time slots.</ThemedText>
+          )}
         </Animated.View>
 
         <Animated.View entering={FadeInUp.delay(800).duration(800)}>
@@ -299,6 +423,48 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f8f8',
     fontSize: 16,
     color: '#1a1a2e',
+  },
+  timeHelpText: {
+    fontSize: 13,
+    color: '#666666',
+    marginBottom: 10,
+  },
+  timeSlotsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  timeSlotCard: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: '#f8f8f8',
+    borderWidth: 1,
+    borderColor: '#e6e6e6',
+  },
+  timeSlotBooked: {
+    backgroundColor: '#efefef',
+    borderColor: '#dedede',
+    opacity: 0.65,
+  },
+  timeSlotSelected: {
+    backgroundColor: '#1a1a2e',
+    borderColor: '#1a1a2e',
+  },
+  timeSlotText: {
+    fontSize: 14,
+    color: '#1a1a2e',
+    fontWeight: '700',
+  },
+  timeSlotBookedText: {
+    color: '#999999',
+    textDecorationLine: 'line-through',
+  },
+  fullyBookedText: {
+    marginTop: 10,
+    fontSize: 13,
+    color: '#b54f4f',
+    fontWeight: '700',
   },
   calendarCard: {
     backgroundColor: '#f8f8f8',
