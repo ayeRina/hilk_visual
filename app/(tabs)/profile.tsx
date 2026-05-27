@@ -1,6 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { resolveAssetUrl } from '@/src/api';
+import { resolveAssetUrl, resetWorkingBase } from '@/src/api';
 import { getSessionUser, type SessionUser } from '@/src/session';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -20,6 +20,7 @@ export default function ProfileScreen() {
   useEffect(() => {
     let mounted = true;
     (async () => {
+      resetWorkingBase();
       const sessionUser = await getSessionUser();
       if (mounted) {
         setUser(sessionUser);

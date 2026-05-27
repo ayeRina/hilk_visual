@@ -1,4 +1,4 @@
-import { photoshoots as apiPhotoshoots, resolveAssetUrl } from '@/api';
+import { photoshoots as apiPhotoshoots, resolveAssetUrl, resetWorkingBase } from '@/api';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useRouter } from 'expo-router';
@@ -7,6 +7,7 @@ import {
     ActivityIndicator,
     Dimensions,
     Image,
+    Modal,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -30,11 +31,14 @@ export default function PhotoshootsScreen() {
   const router = useRouter();
   const [photoshoots, setPhotoshoots] = useState<Photoshoot[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewerModal, setViewerModal] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
+        resetWorkingBase();
         const res = await apiPhotoshoots();
         if (!mounted) return;
         if (res?.success && Array.isArray(res.data)) {
@@ -48,6 +52,11 @@ export default function PhotoshootsScreen() {
     })();
     return () => { mounted = false; };
   }, []);
+
+  const openPhotoViewer = (imagePath: string) => {
+    setSelectedPhoto(imagePath);
+    setViewerModal(true);
+  };
 
   if (loading) {
     return (
@@ -129,12 +138,55 @@ export default function PhotoshootsScreen() {
                       {shoot.description}
                     </ThemedText>
                   )}
+
+                  {shoot.image_path && (
+                    <Pressable
+                      style={styles.viewPhotoButton}
+                      onPress={() => openPhotoViewer(shoot.image_path)}>
+                      <IconSymbol size={16} name="eye" color="#ffffff" />
+                      <ThemedText style={styles.viewPhotoButtonText}>View Photo</ThemedText>
+                    </Pressable>
+                  )}
                 </View>
               </Animated.View>
             ))}
           </View>
         )}
       </ScrollView>
+
+      <Modal visible={viewerModal} transparent animationType="fade" onRequestClose={() => setViewerModal(false)}>
+        <View style={styles.modalContainer}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setViewerModal(false)} />
+          <View style={styles.modalContent}>
+            <Pressable style={styles.closeButton} onPress={() => setViewerModal(false)}>
+              <IconSymbol size={28} name="xmark.circle.fill" color="#ffffff" />
+            </Pressable>
+
+            <View style={styles.modalImageContainer}>
+              {selectedPhoto ? (
+                <Image
+                  source={{ uri: resolveAssetUrl(selectedPhoto) || undefined }}
+                  style={styles.modalImage}
+                  resizeMode="contain"
+                />
+              ) : (
+                <ThemedText style={styles.modalEmptyText}>
+                  Image not available.
+                </ThemedText>
+              )}
+            </View>
+
+            <View style={styles.modalActions}>
+              <Pressable
+                style={styles.modalActionButton}
+                onPress={() => setViewerModal(false)}>
+                <IconSymbol size={24} name="checkmark.circle.fill" color="#ffffff" />
+                <ThemedText style={styles.modalActionText}>Close</ThemedText>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -253,5 +305,83 @@ const styles = StyleSheet.create({
     color: '#999999',
     lineHeight: 16,
     marginTop: 8,
+  },
+  viewPhotoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: '#1a1a2e',
+    borderRadius: 12,
+    marginTop: 12,
+  },
+  viewPhotoButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+  },
+  modalContent: {
+    flex: 1,
+    width: '100%',
+    zIndex: 1,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 72,
+    paddingBottom: 24,
+    gap: 16,
+  },
+  closeButton: {
+    padding: 8,
+  },
+  modalImageContainer: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 260,
+  },
+  modalImage: {
+    width: '100%',
+    height: '100%',
+  },
+  modalEmptyText: {
+    color: '#ffffff',
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: 8,
+  },
+  modalActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    backgroundColor: '#d4c35a',
+  },
+  modalActionText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1a1a2e',
   },
 });

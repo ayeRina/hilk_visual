@@ -1,6 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { resolveAssetUrl, updateUserProfile, uploadFile } from '@/src/api';
+import { resolveAssetUrl, updateUserProfile, uploadFile, resetWorkingBase } from '@/src/api';
 import { getSessionUser, saveSessionUser, type SessionUser } from '@/src/session';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
@@ -22,6 +22,7 @@ export default function EditProfileScreen() {
   useEffect(() => {
     let mounted = true;
     (async () => {
+      resetWorkingBase();
       const sessionUser = await getSessionUser();
       if (!mounted || !sessionUser) {
         return;

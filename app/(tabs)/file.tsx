@@ -1,4 +1,4 @@
-import { uploads as apiUploads, resolveAssetUrl } from '@/api';
+import { uploads as apiUploads, resolveAssetUrl, resetWorkingBase } from '@/api';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { getSessionUser } from '@/src/session';
@@ -49,6 +49,7 @@ export default function FileScreen() {
     let mounted = true;
     (async () => {
       try {
+        resetWorkingBase();
         const sessionUser = await getSessionUser();
         const res = await apiUploads(sessionUser?.id);
         if (!mounted) return;

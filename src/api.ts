@@ -42,10 +42,13 @@ function buildCandidates(): string[] {
   const expoHosts = getExpoHosts();
   expoHosts.forEach((host) => {
     candidates.add(`http://${host}/admin_hilkvisual/api/index.php`);
+    candidates.add(`http://${host}/hilk_visual%20backend/hilkvisual_admin/api/index.php`);
   });
 
-  candidates.add('http://10.0.2.2/admin_hilkvisual/api/index.php');
   candidates.add('http://localhost/admin_hilkvisual/api/index.php');
+  candidates.add('http://10.0.2.2/admin_hilkvisual/api/index.php');
+  candidates.add('http://localhost/hilk_visual%20backend/hilkvisual_admin/api/index.php');
+  candidates.add('http://10.0.2.2/hilk_visual%20backend/hilkvisual_admin/api/index.php');
 
   return Array.from(candidates);
 }
@@ -57,6 +60,10 @@ export const BASE = BASE_CANDIDATES[0];
 
 export function getApiBaseUrl(): string {
   return workingBase || BASE;
+}
+
+export function resetWorkingBase(): void {
+  workingBase = null;
 }
 
 export function resolveAssetUrl(assetPath?: string | null): string | null {
@@ -71,7 +78,7 @@ export function resolveAssetUrl(assetPath?: string | null): string | null {
 
   const base = getApiBaseUrl().replace(/\/api\/index\.php$/, '').replace(/\/+$/, '');
   const trimmedPath = normalizedPath.replace(/^\/+/, '');
-  return encodeURI(`${base}/${trimmedPath}`);
+  return `${base}/${trimmedPath}`;
 }
 
 export type ApiResp<T> = { success: boolean; data?: T; message?: string };
